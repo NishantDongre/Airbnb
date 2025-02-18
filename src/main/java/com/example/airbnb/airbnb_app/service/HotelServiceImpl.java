@@ -1,6 +1,8 @@
 package com.example.airbnb.airbnb_app.service;
 
 import com.example.airbnb.airbnb_app.dto.HotelDto;
+import com.example.airbnb.airbnb_app.dto.HotelInfoDto;
+import com.example.airbnb.airbnb_app.dto.RoomDto;
 import com.example.airbnb.airbnb_app.entity.Hotel;
 import com.example.airbnb.airbnb_app.entity.Room;
 import com.example.airbnb.airbnb_app.exception.ResourceNotFoundException;
@@ -88,7 +90,7 @@ public class HotelServiceImpl implements HotelService {
         log.info("Activating the hotel with ID: {}", hotelId);
         Hotel hotel = hotelRepository
                 .findById(hotelId)
-                .orElseThrow(() -> new ResourceNotFoundException("Hotel not found with ID: "+hotelId));
+                .orElseThrow(() -> new ResourceNotFoundException("Hotel not found with ID: "+ hotelId));
 
         hotel.setActive(true);
 
@@ -96,5 +98,19 @@ public class HotelServiceImpl implements HotelService {
         for(Room room: hotel.getRooms()) {
             inventoryService.initializeRoomForAYear(room);
         }
+    }
+
+    @Override
+    public HotelInfoDto getHotelInfoById(Long hotelId) {
+        Hotel hotel = hotelRepository
+                .findById(hotelId)
+                .orElseThrow(() -> new ResourceNotFoundException("Hotel not found with ID: "+ hotelId));
+
+        List<RoomDto> rooms = hotel.getRooms()
+                .stream()
+                .map((room) -> modelMapper.map(room, RoomDto.class))
+                .toList();
+
+        return new HotelInfoDto(modelMapper.map(hotel, HotelDto.class), rooms);
     }
 }

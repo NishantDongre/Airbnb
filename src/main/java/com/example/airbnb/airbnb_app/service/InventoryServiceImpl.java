@@ -70,6 +70,7 @@ public class InventoryServiceImpl implements InventoryService{
                 pageable
         );
 
+
         return hotelPage;
     }
 }

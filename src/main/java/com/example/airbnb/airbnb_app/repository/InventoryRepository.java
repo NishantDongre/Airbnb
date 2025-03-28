@@ -1,9 +1,11 @@
 package com.example.airbnb.airbnb_app.repository;
 
+import com.example.airbnb.airbnb_app.dto.RoomPriceDto;
 import com.example.airbnb.airbnb_app.entity.Hotel;
 import com.example.airbnb.airbnb_app.entity.Inventory;
 import com.example.airbnb.airbnb_app.entity.Room;
 import jakarta.persistence.LockModeType;
+import jakarta.transaction.Transactional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,6 +15,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -115,4 +118,72 @@ public interface InventoryRepository extends JpaRepository<Inventory, Long> {
                        @Param("numberOfRooms") int numberOfRooms);
 
     List<Inventory> findByHotelAndDateBetween(Hotel hotel, LocalDate startDate, LocalDate endDate);
+
+    List<Inventory> findByRoomOrderByDate(Room room);
+
+    @Query("""
+                SELECT i
+                FROM Inventory i
+                WHERE i.room.id = :roomId
+                  AND i.date BETWEEN :startDate AND :endDate
+            """)
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    List<Inventory> getInventoryAndLockBeforeUpdate(@Param("roomId") Long roomId,
+                                                    @Param("startDate") LocalDate startDate,
+                                                    @Param("endDate") LocalDate endDate);
+
+    @Modifying
+    @Query("""
+                UPDATE Inventory i
+                SET i.surgeFactor = :surgeFactor,
+                    i.closed = :closed
+                WHERE i.room.id = :roomId
+                  AND i.date BETWEEN :startDate AND :endDate
+            """)
+    void updateInventory(@Param("roomId") Long roomId,
+                         @Param("startDate") LocalDate startDate,
+                         @Param("endDate") LocalDate endDate,
+                         @Param("closed") boolean closed,
+                         @Param("surgeFactor") BigDecimal surgeFactor);
+
+    @Query("""
+       SELECT new com.example.airbnb.airbnb_app.dto.RoomPriceDto(
+            i.room,
+            CASE
+                WHEN COUNT(i) = :dateCount THEN AVG(i.price)
+                ELSE NULL
+            END
+        )
+       FROM Inventory i
+       WHERE i.hotel.id = :hotelId
+             AND i.date BETWEEN :startDate AND :endDate
+             AND (i.totalCount - i.bookedCount) >= :roomsCount
+             AND i.closed = false
+       GROUP BY i.room
+       """)
+    List<RoomPriceDto> findRoomAveragePrice(
+            @Param("hotelId") Long hotelId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate,
+            @Param("roomsCount") Long roomsCount,
+            @Param("dateCount") Long dateCount
+    );
+
+    @Query("""
+    SELECT i FROM Inventory i
+    WHERE i.date = (
+        SELECT MAX(sub.date) FROM Inventory sub
+        WHERE sub.hotel = i.hotel AND sub.room = i.room
+    )
+    """)
+    List<Inventory> findLatestInventoryForEachHotelAndRoom();
+
+
+    void deleteByDateBefore(LocalDate date);
+
+
+    @Modifying
+    @Transactional
+    @Query("UPDATE Inventory i SET i.reservedCount = i.reservedCount - :roomsCount WHERE i.room.id = :roomId AND i.date BETWEEN :checkInDate AND :checkOutDate")
+    void releaseExpiredInventory(Long roomId, LocalDate checkInDate, LocalDate checkOutDate, Integer roomsCount);
 }

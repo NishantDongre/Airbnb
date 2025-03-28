@@ -2,6 +2,7 @@ package com.example.airbnb.airbnb_app.controller;
 
 import com.example.airbnb.airbnb_app.service.BookingService;
 import com.example.airbnb.airbnb_app.service.RazorpayWebhookService;
+import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
@@ -22,6 +23,7 @@ public class WebhookController {
     private String endpointSecret;
 
     @PostMapping("/payment")
+    @Operation(summary = "Payment confirmation from RazorPay for a Booking", tags = {"Razorpay Payment"})
     public ResponseEntity<Void> capturePayments(@RequestBody String payload, @RequestHeader("x-razorpay-signature") String sigHeader) {
         try {
             razorpayWebhookService.verifyWebhookSignature(payload, sigHeader);

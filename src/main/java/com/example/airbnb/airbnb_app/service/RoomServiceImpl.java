@@ -15,8 +15,12 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
+
+import static com.example.airbnb.airbnb_app.util.AppUtils.getCurrentUser;
 
 @Service
 @Slf4j
@@ -25,6 +29,7 @@ public class RoomServiceImpl implements RoomService{
     private final HotelRepository hotelRepository;
     private final RoomRepository roomRepository;
     private final InventoryService inventoryService;
+    private final PricingUpdateService pricingUpdateService;
     private final ModelMapper modelMapper;
 
     @Override
@@ -44,7 +49,7 @@ public class RoomServiceImpl implements RoomService{
         room = roomRepository.save(room);
 
         if (hotel.getActive()) {
-            inventoryService.initializeRoomForAYear(room);
+            inventoryService.initializeRoomForAYear(hotel, room);
         }
         return modelMapper.map(room, RoomDto.class);
     }
@@ -87,5 +92,36 @@ public class RoomServiceImpl implements RoomService{
 
         inventoryService.deleteAllInventories(room);
         roomRepository.deleteById(roomId);
+    }
+
+
+    @Override
+    @Transactional
+    public RoomDto updateRoomById(Long hotelId, Long roomId, RoomDto roomDto) {
+        log.info("Updating the room with ID: {}", roomId);
+        Hotel hotel = hotelRepository
+                .findById(hotelId)
+                .orElseThrow(() -> new ResourceNotFoundException("Hotel not found with ID: "+ hotelId));
+
+        User user = getCurrentUser();
+        if(!user.equals(hotel.getOwner())) {
+            throw new UnAuthorisedException("This user does not own this hotel with id: "+hotelId);
+        }
+
+        Room room = roomRepository.findById(roomId)
+                .orElseThrow(() -> new ResourceNotFoundException("Room not found with ID: "+ roomId));
+
+        BigDecimal oldBasePrice = room.getBasePrice();
+
+        modelMapper.map(roomDto, room);
+        room.setId(roomId);
+
+        room = roomRepository.save(room);
+
+        if(!Objects.equals(oldBasePrice, roomDto.getBasePrice())){
+            pricingUpdateService.updateHotelPrices(hotel);
+        }
+
+        return modelMapper.map(room, RoomDto.class);
     }
 }

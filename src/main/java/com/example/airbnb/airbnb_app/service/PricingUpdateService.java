@@ -36,7 +36,7 @@ public class PricingUpdateService {
     private final HotelMinPriceRepository hotelMinPriceRepository;
     private final PricingService pricingService;
 
-    @Scheduled(cron = "*/59 * * * * *")
+    @Scheduled(cron = "0 0 * * * *")
     public void updatePrices() {
         int page = 0;
         int batchSize = 100;
@@ -51,7 +51,7 @@ public class PricingUpdateService {
         }
     }
 
-    private void updateHotelPrices(Hotel hotel) {
+    public void updateHotelPrices(Hotel hotel) {
         log.info("Updating hotel prices for hotel ID: {}", hotel.getId());
         LocalDate startDate = LocalDate.now();
         LocalDate endDate = LocalDate.now().plusYears(1);

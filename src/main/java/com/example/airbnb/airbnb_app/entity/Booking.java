@@ -48,7 +48,7 @@ public class Booking {
     @Column(nullable = false)
     private BookingStatus bookingStatus;
 
-    @ManyToMany(fetch = FetchType.LAZY)
+    @ManyToMany
     @JoinTable(
             name = "booking_guest",
             joinColumns = @JoinColumn(name = "booking_id"),
